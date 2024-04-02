@@ -1,0 +1,82 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: sonar
+---
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: standard
+provisioner: kubernetes.io/aws-ebs
+parameters:
+  type: gp2
+reclaimPolicy: Retain
+allowVolumeExpansion: true
+mountOptions:
+  - debug
+volumeBindingMode: Immediate
+---
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: io2-sc
+provisioner: ebs.csi.aws.com
+parameters:
+  type: io2
+  iopsPerGB: "200"
+reclaimPolicy: Retain
+allowVolumeExpansion: true
+mountOptions:
+  - debug
+volumeBindingMode: Immediate
+---  
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: "pv-claim"
+spec:
+  storageClassName: gp2
+  accessModes:
+  - "ReadWriteOnce"
+  resources:
+    requests:
+      storage: "2Gi"
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: "postgres-sql-claim"
+  namespace: sonar
+spec:
+  storageClassName: io2-sc
+  accessModes:
+  - "ReadWriteOnce"
+  resources:
+    requests:
+      storage: "12Gi"
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: "sonarv-claim"
+  namespace: sonar
+spec:
+  storageClassName: gp2
+  accessModes:
+  - "ReadWriteOnce"
+  resources:
+    requests:
+      storage: "10Gi"
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: "ssl-certs"
+  namespace: kube-system
+spec:
+  storageClassName: gp2
+  accessModes:
+  - "ReadWriteOnce"
+  resources:
+    requests:
+      storage: "3Gi"

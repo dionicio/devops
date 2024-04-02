@@ -1,4 +1,5 @@
 
+/*
 resource "aws_security_group" "main" {
   name        = "security-group"
   description = "security-group"
@@ -54,7 +55,7 @@ resource "aws_efs_access_point" "test" {
       }
   }
 }
-
+*/
 
 resource "aws_iam_policy" "eks_worknode_ebs_policy" {
   name = "Amazon_EBS_CSI_Driver"
@@ -92,6 +93,7 @@ resource "aws_iam_role_policy_attachment" "worknode-AmazonEBSCSIDriver" {
   role       = aws_iam_role.nodes.name
 }
 
+/*
 
 resource "aws_iam_policy" "eks_worknode_elastic_policy" {
   name = "Amazon_elastic"
@@ -119,3 +121,5 @@ resource "aws_iam_role_policy_attachment" "worknode-AmazonElastic" {
   policy_arn = aws_iam_policy.eks_worknode_elastic_policy.arn
   role       = aws_iam_role.nodes.name
 }
+
+*/

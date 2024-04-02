@@ -1,93 +1,69 @@
- pipeline {
+pipeline {
+  agent any 
+     tools { 
+        maven 'maven3.9.6'
+      }    
+    
+  stages {
+     
+    stage('SCM') {
+       steps {
+             git 'https://github.com/dionicio/devops-new'
+             }
+           }            
 
-      agent  {
-        
-        kubernetes {
-            yaml '''
-                    apiVersion: v1
-                    kind: Pod
-                    metadata:
-                      name: pod
-                      labels:
-                       some-label: pod
-                    spec:
-                      containers:
-                        - name: maven
-                          image: maven:3.8.3-openjdk-17
-                          command:
-                            - cat
-                          tty: true
-                          volumeMounts:
-                            - name: m2
-                              mountPath: /root/.m2
-                        - name: docker
-                          image: docker:19.03
-                          command: ["cat"] 
-                          tty: true
-                          volumeMounts:
-                            - name: dockersock
-                              mountPath: /var/run/docker.sock
-                      volumes:
-                        - name: dockersock
-                          hostPath:
-                            path: /var/run/docker.sock
-                        - name: m2
-                          hostPath:
-                            path: /root/.m2'''
-        }
-       
-       }
-
-        stages {
+         stage("Package & SonarQube analysis") {
+          
+            steps {
            
-          stage('SCM') {
-               steps {
-                   
-                 git 'https://github.com/dionicio/devops'
-               }
-           }
-        stage('Package') {   
-          steps {
-           
-              container('maven') {
-                   sh 'mvn clean package'
+              withSonarQubeEnv('sonar-server') {
+                   sh 'mvn clean package sonar:sonar'
                  }
-          }  
-        } 
-        stage('Build') { 
-            steps {
-                 
-                    script{
-                     app = docker.build("dionicio1/hello-app")
-                    }
-              
-               
             }
-        }
+          }
+	  stage("Quality Gate") {
+		steps {
+		  sleep(10)    
+		  script{
+		  timeout(time: 1, unit: 'HOURS') {
+			qualitygate = waitForQualityGate()
+			if (qualitygate.status != "OK") {
+			   error 'App does not meet quality'
+			}  
+		  }
+		  }
+		}
+	  } 
 
-        stage('Push') {
-            steps {
-                    
-                script{
-                    docker.withRegistry('', 'DOCKER_HUB') {
-                    app.push("${env.BUILD_NUMBER}")
-                    app.push("latest")
-                    }
-                }    
-             
-            }
+      stage('Build') { 
+		steps {
+	
+			 withCredentials([usernamePassword(credentialsId: 'DOCKER_HUB', passwordVariable: 'pass', usernameVariable: 'user')]) {
+				withCredentials([string(credentialsId: 'hub_pass', variable: 'passh')]) {
+				   sh 'echo $passh'     
+				   sh 'mvn compile jib:build -Djib.to.tags=$BUILD_NUMBER -Djib.to.auth.username=$user -Djib.to.auth.password=$passh'
+		
+			}
+		
+	 
+	  
+		 }
+	   
+		}
         }
-        
-        stage('deploy') {
-            steps {
-                     
-                withKubeCredentials(kubectlCredentials: [[caCertificate: '', clusterName: 'development', contextName: '', credentialsId: 'k8s_token', namespace: '', serverUrl: '']]) {
-                  sh 'curl -LO "https://storage.googleapis.com/kubernetes-release/release/v1.20.5/bin/linux/amd64/kubectl"'  
-                  sh 'chmod u+x ./kubectl'  
-                  sh './kubectl apply -f k8s/deployment.yaml'
-                 }
-                }    
-              
-            }
-        }    
-      }
+      
+    stage('Deploy App') {
+         steps {
+        withKubeCredentials(kubectlCredentials: [[caCertificate: '', clusterName: 'development', contextName: '', credentialsId: 'k8s_token', namespace: 'default', serverUrl: 'https://A66FEFBA5894DABE5B6DD4A634907BC6.gr7.us-east-1.eks.amazonaws.com']]) {
+		   
+		  sh 'curl -LO "https://storage.googleapis.com/kubernetes-release/release/v1.20.5/bin/linux/amd64/kubectl"'  
+		  sh 'chmod u+x ./kubectl'
+		  sh './kubectl rollout restart deployment/hello-app'
+		  sh './kubectl apply -f k8s/deployment.yaml'
+			 
+			 }
+         }
+      }    
+    }
+  
+}
