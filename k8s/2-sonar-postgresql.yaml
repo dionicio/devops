@@ -42,7 +42,7 @@ spec:
         app: postgres
     spec:
       nodeSelector:
-       role: general
+       role: postgres
       securityContext:
         fsGroup: 2000 
       containers:

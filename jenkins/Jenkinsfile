@@ -8,7 +8,7 @@ pipeline {
      
     stage('SCM') {
        steps {
-             git 'https://github.com/dionicio/devops-new'
+             git 'https://github.com/dionicio/devops'
              }
            }            
 
